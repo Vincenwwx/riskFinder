@@ -1,23 +1,36 @@
+from PyQt5 import QtGui
+from PyQt5.QtGui import QPixmap, QColor
 import json
-import sys
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QKeySequence, QIcon, QBrush, QPen, QColor, QPainter
 from PyQt5.QtWidgets import QApplication, QLabel, QMainWindow, QAction, QGraphicsScene, QGraphicsView, QVBoxLayout, \
     QHBoxLayout, QWidget
-from Controller import PLU
-from view import Scene
-from model import Model
 
 
+class Scene(QLabel):
+    def __init__(self, parent):
+        super(Scene, self).__init__()
+        self.parent = parent
+        width, height = parent.width(), parent.height()
+        # Setup background
+        self.pixmap = QPixmap(width, height)
+        self.pixmap.fill(QColor(120, 120, 120))
+        self.setPixmap(self.pixmap)
+
+    def paintEvent(self, event):
+        pass
+
+
+""" 
+Main window
+"""
 class Window(QMainWindow):
 
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Hardware Emulator")
         self.resize(800, 600)
-        self.model = Model()
-        self.load()
 
         self.simulation_actions = {}
 
@@ -109,9 +122,22 @@ class Window(QMainWindow):
     def _createScene(self):
         """ Create scene composing of stage and connection
         """
-        canvas = Scene(self)
+        self.canvas = Scene(self)
+        self.setCentralWidget(self.canvas)
 
-        self.setCentralWidget(canvas)
+    def draw_PLU(self, PLU):
+        """Draw a PLU on the canvas
+
+        Args:
+            PLU (dict): Information of PLU to draw.
+
+        Returns:
+            bool: True if succeed, otherwise false
+        """
+        battery_level = PLU["battery level"]
+        position = PLU["position"]
+        role = PLU["role"]
+
 
     def _createStatusBar(self):
         self.statusBar = self.statusBar()
@@ -119,9 +145,6 @@ class Window(QMainWindow):
 
     # ------------- Event functions ---------------
     # When set_roles is triggered, a new window will pop out
-    def set_roles(self):
-        pass
-
     def start_simulation(self):
         pass
 
@@ -133,25 +156,3 @@ class Window(QMainWindow):
 
     def stop_simulation(self):
         pass
-
-    # ------------- Helper functions ---------------
-    def save(self):
-        with open(data_base_file_path, 'w') as f:
-            json.dump(self.model.roles, f)
-
-    def load(self):
-        pass
-
-
-def main():
-    app = QApplication(sys.argv)
-    ex = Window()
-    ex.show()
-    try:
-        sys.exit(app.exec_())
-    except SystemExit:
-        print("Closing window...")
-
-
-if __name__ == "__main__":
-    main()

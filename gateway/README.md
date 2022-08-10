@@ -2,9 +2,9 @@
 
 ## Introduction
 ### Who are behind the project?
-Author: Wenxin Wang, 3435863, University of Stuttgart
+Author: Wenxin Wang, University of Stuttgart
 
-Supervisor: Dr. Grimmeisen Philipp, Jun.-Prof. Dr.-Ing Andrey Morozov
+Supervisors: Dr. Grimmeisen Philipp, Jun.-Prof. Dr.-Ing Andrey Morozov
 ### What is this code used for?
 This part of code is for the gateway part of the master thesis of _Development of the Demonstration Hardware of the 
 Advanced Risk Assessment Method for Industrial CPS_. In the program, a GUI for visualization and control of the whole 
