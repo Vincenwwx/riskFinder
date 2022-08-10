@@ -1,5 +1,10 @@
 # INTRODUCTION
-Development of the Demonstration System of the Advanced Risk Assessment Method for Industrial CPS
+## Project
+Development of a Demonstration System of the Advanced Risk Assessment Method for Industrial CPS
+## Stuff
+Author: Wenxin Wang, University of Stuttgart
+
+Supervisor: Prof. Andrey Morozov, Philipp Grimmeisen and Tagir Fabarisov
 
 # STRUCTURE
 ## Hardware
@@ -7,5 +12,7 @@ Development of the Demonstration System of the Advanced Risk Assessment Method f
 ### Control Center - Raspberry Pi 4B+
 
 ## Software
-- GUI development with MVC pattern
-- Risk accessment based on Petri-net
+### Frontend 
+GUI development with MVC pattern
+### Backend 
+Risk assessment based on Petri-net

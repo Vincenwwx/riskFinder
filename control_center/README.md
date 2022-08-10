@@ -1,12 +1,5 @@
-# HW Emulator for Advanced Risk Management Method - Gateway
-
-## Introduction
-### Who are behind the project?
-Author: Wenxin Wang, University of Stuttgart
-
-Supervisors: Dr. Grimmeisen Philipp, Jun.-Prof. Dr.-Ing Andrey Morozov
-### What is this code used for?
-This part of code is for the gateway part of the master thesis of _Development of the Demonstration Hardware of the 
+# Control Center
+This part of code is for the control center part of the master thesis of _Development of the Demonstration Hardware of the 
 Advanced Risk Assessment Method for Industrial CPS_. In the program, a GUI for visualization and control of the whole 
 emulator will be provided, and in the GUI the user can:
 - See the physical layout of the production line units (PLU);
