@@ -138,7 +138,6 @@ class Window(QMainWindow):
         position = PLU["position"]
         role = PLU["role"]
 
-
     def _createStatusBar(self):
         self.statusBar = self.statusBar()
         self.statusBar.showMessage("System ready...")

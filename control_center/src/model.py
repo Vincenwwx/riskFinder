@@ -1,79 +1,79 @@
 import json
 
 
+class PLU:
+    """Datastructure to represent a production line unit.
+
+    Each PLU has the following attributes:
+        - ID: identical num
+        - role_id: the id of the role of the PLU
+        - battery_level: current battery level
+        - position: 2d tuple (x, y)
+        - connection: list of two lists (the first list contains the IDs of the input,
+                      and the second contains IDs of the output PLU.
+    """
+    def __init__(self, ID, role_id, battery_level, position, connection=None):
+        self.id = ID
+        self.role = role_id
+        self.battery_level = battery_level
+        self.position = position
+        self.connection = connection or []
+
+
 class Model:
     def __init__(self, PLUs=None, data_file_path='./roles.db'):
+        # list of roles, each role is represented in a dictionary
+        self.data_file_path = data_file_path
         self.roles = []
-        self.load_roles(data_file_path)
+        self.load_roles()
+
+        # Information of the PLUs that are currently connected to the system.
+        # Data is represented as a list of PLU (objects).
         self.PLUs = PLUs or []
 
-    def load_roles(self, data_file_path):
-        """ Load roles from a (database) file.
-
-        Args:
-            data_file_path (str): Path of the data file.
-
-        Returns:
-            bool: True if succeed, otherwise False.
-        """
+    def load_roles(self):
+        """ Load roles from a (database) file. """
         try:
-            with open(data_file_path, 'r') as f:
+            with open(self.data_file_path, 'r') as f:
                 self.roles = json.load(f)
+                print("Successfully load roles.")
         except FileNotFoundError:
             print("[ERROR] Failed to load role data file, please check...")
             exit(1)
 
     def save_roles(self):
-        """
-        Save list of roles as a (database) file.
+        """ Save list of roles as a (database) file.
 
-        Returns:
-            bool
-        """
-        pass
-
-    def append_new_PLU(self, PLU: dict):
-        """Add a new detected PLU to the list.
-
-        Args:
-            PLU (dict): Information of PLU to add.
-
-        Returns:
-            bool: True if successfully add a new PLU, otherwise False.
-        """
-        pass
-
-    def delete_PLU(self, PLU_id: int):
-        """
-        Delete a PLU from the list.
-
-        Args:
-            PLU_id (int): Id of the PLU to delete.
+        If the file doesn't exist, then create a new one.
 
         Returns:
             bool: True if succeed, otherwise False.
         """
-        pass
-
-    def update_PLU_status(self, PLU_id, battery_level=None, position=None):
-        """
-        Update the status of a PLU, i.e., battery level, position.
-
-        Args:
-            PLU_id (int): Id of the PLU to update.
-            battery_level (int, optional): New battery level.
-            position (tuple of (int, int), optional): New position.
-
-        Returns:
-            bool: True if succeed, otherwise False.
-        """
-        pass
+        with open(self.data_file_path, 'w') as f:
+            json.dump(self.roles, f)
 
     def update_connection(self):
-        """
-        Update the connection of the PLUs according to positions of PLUs.
+        """Recalculate the connection of the PLUs based on the positions of PLUs.
 
         Returns:
             bool: True if succeed, otherwise False.
         """
         pass
+
+    def name_to_id(self, name):
+        """Convert role name to id."""
+        if self.roles:
+            for role in self.roles:
+                if name == role["name"]:
+                    return role["id"]
+        else:
+            print("[WARNING] Empty role list.")
+
+    def id_to_name(self, id_num):
+        """Convert role id to name."""
+        if self.roles:
+            for role in self.roles:
+                if id_num == role["id"]:
+                    return role["name"]
+        else:
+            print("[WARNING] Empty role list.")
