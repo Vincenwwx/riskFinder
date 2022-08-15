@@ -1,4 +1,4 @@
-#include <WiFi.h>
+  #include <WiFi.h>
 #include <WebServer.h>
 #include <ArduinoJson.h>
 #include <TFT_eSPI.h> // Graphics and font library for ST7735 driver chip
@@ -14,13 +14,13 @@ AnimatedGIF gif;
 #include "robot.h"
 #include "conveyorBelt.h"
 
-//#define HOME
+#define HOME
 //#define COMPANY
-#define RASP
+//#define RASP
 #define DEBUG_MODE
 
 // -----------------------------------------------
-// Node Info
+// PLU Info
 // -----------------------------------------------
 char role[20] = "undefined";
 uint8_t id = 1;
@@ -28,6 +28,7 @@ uint8_t id = 1;
 //  0: Ready
 //  1: Simulating/working
 uint8_t state = 0;
+uint8_t battery_level = 100;
 
 // -----------------------------------------------
 // Display
@@ -139,17 +140,17 @@ WebServer server(80);
 StaticJsonDocument<250> jsonDocument;
 char buffer[250];
 
-void create_json(char *tag, char *value, char *unit) {  
+void create_json(int id, char *role, int battery_level) {  
   jsonDocument.clear();  
-  jsonDocument["type"] = tag;
-  jsonDocument["value"] = value;
-  jsonDocument["unit"] = unit;
+  jsonDocument["id"] = id;
+  jsonDocument["role"] = role;
+  jsonDocument["batLel"] = battery_level;
   serializeJson(jsonDocument, buffer);
 }
 
-void getRole() {
+void getInfo() {
   Serial.println("Get role");
-  create_json("Role", role, "");
+  create_json(id, role, battery_level);
   server.send(200, "application/json", buffer);
 }
 
@@ -175,12 +176,12 @@ void handlePost() {
 
   renderNewDisplay();
   // Respond to the client
-  server.send(200, "text/plain", "Success!");
+  server.send(200, "text/plain", "success");
 }
 
 // setup API resources
 void setup_routing() {
-  server.on("/role", getRole);
+  server.on("/info", getInfo);
   server.on("/config", HTTP_POST, handlePost);
  
   // start server
