@@ -12,7 +12,7 @@ class PLU:
         - connection: list of two lists (the first list contains the IDs of the input,
                       and the second contains IDs of the output PLU.
     """
-    def __init__(self, ID, role_id, battery_level, position, connection=None):
+    def __init__(self, ID, role_id, battery_level, position=(0, 0), connection=None):
         self.id = ID
         self.role = role_id
         self.battery_level = battery_level
@@ -30,6 +30,10 @@ class Model:
         # Information of the PLUs that are currently connected to the system.
         # Data is represented as a list of PLU (objects).
         self.PLUs = PLUs or []
+
+    @property
+    def num_of_PLUs(self):
+        return len(self.PLUs)
 
     def load_roles(self):
         """ Load roles from a (database) file. """

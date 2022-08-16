@@ -1,5 +1,6 @@
 import os.path
 import sys, shutil, requests, json, time
+import configparser
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import QThread, pyqtSignal
 
@@ -13,34 +14,46 @@ class Detector_HTTP(QThread):
 
     The status include ID, role and battery level.
     """
+
     def __init__(self, ip_range, delay=3):
         super().__init__()
         self.ip_range = self.parseIpRange(ip_range)
-        # Holder of PLUs'id, which will be used to figure out if there is newly
-        # joining PLU.
-        self.online_ips = []
+        self.online_PLUs = {}  # dict in form of 'ip': PLU_id
+        self.delay = delay
         # Signal with parameters:
         #   - PLU id (int)
         #   - Role id (int)
         #   - Battery level (int)
-        self.detect_new_PLU_signal = pyqtSignal(int, int, int, name="detect_new_PLU")
-        self.delay = delay
+        self.detect_PLU_joins_signal = pyqtSignal(int, int, int, name="detect_new_PLU_joins")
+        self.detect_PLU_leaves_signal = pyqtSignal(int, name="detect_new_PLU_leaves")
 
     def run(self):
+        """
+        Test the existence of PLUs by sending HTTP requests to every ip in the
+        list for every {delay} seconds.
+        """
         while (True):
             for ip in self.ip_range:
                 schema = f'http://{ip}/info'
-                try:
+                try:  # target exists
                     res = requests.get(schema)
-                    if res.status_code == 200 and ip not in self.online_ips : # if PLU is alive and new
+                    if res.status_code == 200:
                         data = json.loads(res.text)
                         print(f"[Detector] New PLU found: "
                               f"id={data['id']}, "
                               f"role={data['role']}, "
                               f"battery level={data['batLel']}")
-                        self.detect_new_PLU_signal.emit(data['id'], data['role'], data['batLel'])
-                except:
-                    pass
+                        if ip not in self.online_PLUs:  # if PLU is alive and new
+                            self.online_PLUs[id] = data['id']
+                            self.detect_PLU_joins_signal.emit(data['id'], data['role'], data['batLel'])
+                        elif data[]
+
+                except ConnectionError:  # target does not exist
+                    if ip in self.online_PLUs:
+                        del self.online_PLUs[ip]
+                        print(f"[Detector] PLU with ip {ip} leaves")
+                        self.detect_PLU_leaves_signal(self.online_PLUs[ip])
+
             time.sleep(self.delay)
 
     @staticmethod
@@ -67,6 +80,7 @@ class Vision(QThread):
     The process includes init Pi Camera, captures frames, use OpenCV to recognize
     PLUs and return the positions.
     """
+
     def __init__(self):
         super(Vision, self).__init__()
         # Holder of PLUs'id, which will be used to figure out if there is newly
@@ -76,7 +90,7 @@ class Vision(QThread):
         # TODO: init Pi Camera
 
     def run(self) -> None:
-        #while (True):
+        # while (True):
         pass
 
     def get_position(self, id_num):
@@ -93,10 +107,12 @@ class Vision(QThread):
 
 
 class Controller:
-    def __init__(self):
+    def __init__(self, ip_range):
         self._app = QtWidgets.QApplication(sys.argv)
         self.model = Model()  # 初始化模型
-        self.detector_http = Detector_HTTP()
+        self.detector_http = Detector_HTTP(ip_range)
+        self.detector_http.detect_PLU_joins_signal.connect(self.append_new_PLU)
+        self.detector_http.detect_PLU_leaves_signal.connect(self.delete_PLU)
         self.vision = Vision()
         self._view = Window()  # 初始化视图
 
@@ -177,16 +193,23 @@ class Controller:
         """
         pass
 
-    def append_new_PLU(self, PLU: dict):
+    def detector_handler(self, data):
+        pass
+
+    def append_new_PLU(self, PLU_id: int, role_id: int, battery_level: int):
         """Add a new detected PLU to the list.
 
         Args:
-            PLU (dict): Information of PLU to add.
+            PLU_id (int): Id of PLU to add.
+            role_id (int): Id of PLU's role.
+            battery_level (int): percentage of battery level.
 
         Returns:
             bool: True if successfully add a new PLU, otherwise False.
         """
-        pass
+        self.model.PLUs.append(PLU(ID=PLU_id,
+                                   role_id=role_id,
+                                   battery_level=battery_level))
 
     def delete_PLU(self, PLU_id: int):
         """
@@ -198,7 +221,9 @@ class Controller:
         Returns:
             bool: True if succeed, otherwise False.
         """
-        pass
+        for i in range(self.model.num_of_PLUs-1):
+            if self.model.PLUs[i].id == PLU_id:
+                del self.model.PLUs[i]
 
     def update_PLU_status(self, PLU_id, battery_level=None, position=None):
         """
@@ -212,7 +237,12 @@ class Controller:
         Returns:
             bool: True if succeed, otherwise False.
         """
-        pass
+        for PLU in self.model.PLUs:
+            if PLU.id == PLU_id:
+                if battery_level:
+                    PLU.battery_level = battery_level
+                if position:
+                    PLU.position = position
 
     def run(self):
         self._view.show()
@@ -220,7 +250,9 @@ class Controller:
 
 
 if __name__ == '__main__':
-    controller = Controller()
+    config = configparser.ConfigParser()
+    config.read('./../config.ini')
+    controller = Controller(config['Basic']['ip_range'])
     try:
         sys.exit(controller.run())
     except SystemExit:
