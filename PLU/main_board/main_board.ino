@@ -15,9 +15,8 @@ AnimatedGIF gif;
 #include "conveyorBelt.h"
 
 #define HOME
-//#define COMPANY
 //#define RASP
-#define DEBUG_MODE
+//#define DEBUG_MODE
 
 // -----------------------------------------------
 // PLU Info
@@ -105,10 +104,6 @@ void renderNewDisplay() {
 #ifdef RASP
 const char* ssid     = "vincen_MA";
 const char* password = "wwxwwx183";
-#endif
-#ifdef COMPANY
-const char* ssid     = "Midea 5. Floor";
-const char* password = "20#MIDEA#22";
 #endif
 #ifdef HOME
 const char* ssid     = "Google Cloud";
