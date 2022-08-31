@@ -1,41 +1,76 @@
-  #include <WiFi.h>
+#include <WiFi.h>
 #include <WebServer.h>
 #include <ArduinoJson.h>
-#include <TFT_eSPI.h> // Graphics and font library for ST7735 driver chip
+#include <TFT_eSPI.h>           // Graphics and font library
 #include <SPI.h>
+#include <Encoder.h>            // Library used for rotary encoder
 
 #define NORMAL_SPEED
-#define USE_DMA       // ESP32 ~1.25x single frame rendering performance boost for badgers.h
-                        // Note: Do not use SPI DMA if reading GIF images from SPI SD card on same bus as TFT
-// Load GIF library
-#include <AnimatedGIF.h>
-AnimatedGIF gif;
-
+#define USE_DMA                 // ESP32 ~1.25x single frame rendering performance boost for badgers.h
+                                // Note: Do not use SPI DMA if reading GIF images from SPI SD card on same bus as TFT
+#include <AnimatedGIF.h>        // Library used to display animated gif
 #include "robot.h"
 #include "conveyorBelt.h"
 
 #define HOME
 //#define RASP
 //#define DEBUG_MODE
+//#define CIRCLE_LEVEL
+
+const uint8_t LEVEL_UPPER_LIMIT = 3;
+const uint8_t LEVEL_LOWER_LIMIT = 1;
 
 // -----------------------------------------------
 // PLU Info
 // -----------------------------------------------
-char role[20] = "undefined";
 uint8_t id = 1;
+char role[20] = "undefined";
 // States of the node
 //  0: Ready
 //  1: Simulating/working
 uint8_t state = 0;
+uint8_t level = LEVEL_LOWER_LIMIT;
 uint8_t battery_level = 100;
+
+// -----------------------------------------------
+// Rotary Encoder
+// -----------------------------------------------
+const uint8_t BUTTON_A = 33;
+const uint8_t BUTTON_B = 15;
+
+Encoder rotary_encoder(BUTTON_A, BUTTON_B);
+long pos = -999;
+
+void update_level(uint8_t &level, int num) {
+#ifdef CIRCLE_LEVEL
+  if (level == LEVEL_LOWER_LIMIT && num == -1)
+    level = LEVEL_UPPER_LIMIT;
+  else if (level == LEVEL_UPPER_LIMIT && num == 1) {
+    level = LEVEL_LOWER_LIMIT;
+  }
+#else
+  if ((level == LEVEL_LOWER_LIMIT && num == -1) ||
+      (level == LEVEL_UPPER_LIMIT && num == 1))
+  { 
+    // do nothing 
+  }
+#endif
+  else 
+    level += num;
+}
 
 // -----------------------------------------------
 // Display
 // -----------------------------------------------
 TFT_eSPI tft = TFT_eSPI();  // Invoke library, pins defined in User_Setup.h
+AnimatedGIF gif;
+
 const uint16_t iconSize = 230;
 uint8_t const *roleFile = NULL;
 size_t sizeOfFile = 0;
+
+const uint8_t level_x_coordinate = 185;
+const uint8_t level_y_coordinate = 185;
 
 void init_display() {
   tft.init();
@@ -52,7 +87,7 @@ void init_display() {
   
   // Set "cursor" at top left corner of display (0,0) and select font 2
   // (cursor will move to next line automatically during printing with 'tft.println'
-  //  or stay on the line is there is room for the text with tft.print)
+  //  or stay on the line if there is room for the text with tft.print)
   tft.setCursor(0, 0, 2);
   // Set the font colour to be white with a black background, set text size multiplier to 1
   tft.setTextColor(TFT_WHITE);  tft.setTextSize(1);
@@ -63,6 +98,7 @@ void init_display() {
 void renderNewDisplay() {
   tft.fillScreen(TFT_BLACK);
   tft.setCursor(0, 0, 2);
+  tft.setTextSize(1);
 
   // Display ID
   char displayBuffer[30] = "";
@@ -73,7 +109,7 @@ void renderNewDisplay() {
   sprintf(displayBuffer, "ROLE : %s", role);
   tft.println(displayBuffer);
 
-  // Display state
+  // Display simulation state
   char s[11] = "";
   if (state == 0) {
     strcpy(s, "ready");
@@ -82,6 +118,12 @@ void renderNewDisplay() {
   }
   sprintf(displayBuffer, "STATE: %s", s);
   tft.println(displayBuffer);
+
+  // Display simulation parameter
+  tft.drawCircle(190, 40, 30, TFT_WHITE);
+  tft.setCursor(185, 25);
+  tft.setTextSize(2);
+  tft.print(level);
 
   // Display IP
 #ifdef DEBUG_MODE
@@ -96,6 +138,15 @@ void renderNewDisplay() {
     roleFile = conveyorBelt;
     sizeOfFile = sizeof(conveyorBelt);
   }
+}
+
+void render_level() {
+  // Clear the previous level
+  tft.fillRect(185, 25, 15, 30, TFT_BLACK);
+  // Draw the latest level
+  tft.setCursor(185, 25);
+  tft.setTextSize(2);
+  tft.print(level);
 }
 
 // -----------------------------------------------
@@ -201,7 +252,23 @@ void setup(void) {
 // Loop
 // -----------------------------------------------
 void loop(void) {
+  // handle HTTP request
   server.handleClient();
+    
+  long newPos = rotary_encoder.read();
+  delay(70);
+  if (newPos != pos) {
+    //Serial.print("Change");
+    if (newPos - pos > 0) {
+      update_level(level, 1);
+    } else {
+      update_level(level, -1);
+    }
+    render_level();
+    pos = newPos;
+  }
+  
+  // Show figure
   if(roleFile != NULL) {
 #ifdef DEBUG_MODE
     Serial.print("Not null");
@@ -209,7 +276,7 @@ void loop(void) {
     if (gif.open((uint8_t *)roleFile, sizeOfFile, GIFDraw)) {
 #ifdef DEBUG_MODE
       Serial.print("read file");
-#endif
+#endif  
       tft.startWrite(); // For DMA the TFT chip slect is locked low
       while (gif.playFrame(false, NULL))
       {
@@ -220,6 +287,7 @@ void loop(void) {
       gif.close();
       tft.endWrite(); // Release TFT chip select for other SPI devices
     }
+
   }
 
   //delay(43);
