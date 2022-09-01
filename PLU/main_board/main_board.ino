@@ -37,6 +37,7 @@ uint8_t battery_level = 100;
 // -----------------------------------------------
 const uint8_t BUTTON_A = 33;
 const uint8_t BUTTON_B = 15;
+const uint8_t PRESS_BUTTON = 14;
 
 Encoder rotary_encoder(BUTTON_A, BUTTON_B);
 long pos = -999;
@@ -244,6 +245,8 @@ void setup(void) {
   connectToWiFi();
   setup_routing();
   renderNewDisplay();
+
+  pinMode(PRESS_BUTTON, INPUT_PULLUP);
   
   delay(1000);
 }
@@ -255,18 +258,18 @@ void loop(void) {
   // handle HTTP request
   server.handleClient();
     
-  long newPos = rotary_encoder.read();
+  long pos = rotary_encoder.read();
   delay(70);
-  if (newPos != pos) {
-    //Serial.print("Change");
-    if (newPos - pos > 0) {
-      update_level(level, 1);
-    } else {
-      update_level(level, -1);
-    }
-    render_level();
-    pos = newPos;
+  if (pos < 8) {
+    level = 1;
   }
+  else if (pos < 20) {
+    //Serial.println(newPos);
+    level = 2;
+  } else {
+    level = 3;
+  }
+  render_level();
   
   // Show figure
   if(roleFile != NULL) {
@@ -290,5 +293,8 @@ void loop(void) {
 
   }
 
+  if(digitalRead(PRESS_BUTTON) == LOW) { // If the button of rotary encode is pressed
+    rotary_encoder.write(0);             // set the current position as default
+  }
   //delay(43);
 }
