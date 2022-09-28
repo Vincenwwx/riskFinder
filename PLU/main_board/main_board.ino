@@ -14,7 +14,7 @@
 
 #define HOME
 //#define RASP
-//#define DEBUG_MODE
+#define DEBUG_MODE
 //#define CIRCLE_LEVEL
 
 const uint8_t LEVEL_UPPER_LIMIT = 3;
@@ -31,6 +31,15 @@ char role[20] = "undefined";
 uint8_t state = 0;
 uint8_t level = LEVEL_LOWER_LIMIT;
 uint8_t battery_level = 100;
+
+const int MAX_ANALOG_VAL = 4095;
+const float MAX_BATTERY_VOLTAGE = 4.2; // Max LiPoly voltage of a 3.7 battery is 4.2
+
+void update_battery_level() {
+  float rawValue = analogRead(A13);
+  battery_level = (int)(rawValue / MAX_ANALOG_VAL * 2 * 1.1 * 3.3 / MAX_BATTERY_VOLTAGE * 100);
+}
+
 
 // -----------------------------------------------
 // Rotary Encoder
@@ -63,6 +72,13 @@ void update_level(uint8_t &level, int num) {
 // -----------------------------------------------
 // Display
 // -----------------------------------------------
+// Change the position of the elements here
+const uint8_t level_x_coordinate = 160;
+const uint8_t level_y_coordinate = 15;
+
+const uint8_t battery_x_coordinate = 210;
+const uint8_t battery_y_coordinate = 10;
+
 TFT_eSPI tft = TFT_eSPI();  // Invoke library, pins defined in User_Setup.h
 AnimatedGIF gif;
 
@@ -70,8 +86,30 @@ const uint16_t iconSize = 230;
 uint8_t const *roleFile = NULL;
 size_t sizeOfFile = 0;
 
-const uint8_t level_x_coordinate = 185;
-const uint8_t level_y_coordinate = 185;
+void draw_battery(uint8_t level) {
+  //assert(level < 3);
+  tft.fillRect(battery_x_coordinate, battery_y_coordinate, 30, 25, TFT_BLACK);
+
+  int color;
+  if (level == 1) color = TFT_RED;
+  else if (level == 2) color = TFT_YELLOW;
+  else color = TFT_GREEN;
+  tft.drawRect(battery_x_coordinate, battery_y_coordinate, 20, 15, TFT_WHITE);
+  tft.fillRect(battery_x_coordinate+20, battery_y_coordinate+3, 3, 9, TFT_WHITE);
+  for (int i = 0; i < level; i++) {
+    tft.fillRect(battery_x_coordinate+2+(4+2)*i, battery_y_coordinate+3, 4, 9, color);
+  }
+}
+
+void draw_level() {
+  // Clear the previous level
+  tft.fillRect(level_x_coordinate, level_y_coordinate, 15, 30, TFT_BLACK);
+  // Draw the latest level
+  //tft.setCursor(185, 25);
+  tft.setCursor(level_x_coordinate, level_y_coordinate);
+  tft.setTextSize(2);
+  tft.println(level);
+}
 
 void init_display() {
   tft.init();
@@ -101,6 +139,11 @@ void renderNewDisplay() {
   tft.setCursor(0, 0, 2);
   tft.setTextSize(1);
 
+  // Display battery
+  update_battery_level();
+  uint8_t lvl = (battery_level < 30) ? 1 : (battery_level < 60) ? 2 : 3;
+  draw_battery(lvl);
+
   // Display ID
   char displayBuffer[30] = "";
   sprintf(displayBuffer, "ID   : %d", id);
@@ -121,15 +164,17 @@ void renderNewDisplay() {
   tft.println(displayBuffer);
 
   // Display simulation parameter
-  tft.drawCircle(190, 40, 30, TFT_WHITE);
-  tft.setCursor(185, 25);
-  tft.setTextSize(2);
-  tft.print(level);
+  tft.drawCircle(level_x_coordinate+6, level_y_coordinate+16, 22, TFT_WHITE);
+  draw_level();
 
   // Display IP
 #ifdef DEBUG_MODE
+  tft.setTextSize(1);
   tft.print("IP: ");
   tft.println(WiFi.localIP());
+  tft.print("Bat. lel: ");
+  tft.print(battery_level);
+  tft.println("%");
 #endif
   
   if (strcmp(role, "robot") == 0) {
@@ -139,15 +184,6 @@ void renderNewDisplay() {
     roleFile = conveyorBelt;
     sizeOfFile = sizeof(conveyorBelt);
   }
-}
-
-void render_level() {
-  // Clear the previous level
-  tft.fillRect(185, 25, 15, 30, TFT_BLACK);
-  // Draw the latest level
-  tft.setCursor(185, 25);
-  tft.setTextSize(2);
-  tft.print(level);
 }
 
 // -----------------------------------------------
@@ -191,12 +227,14 @@ void create_json(int id, char *role, int battery_level) {
   jsonDocument.clear();  
   jsonDocument["id"] = id;
   jsonDocument["role"] = role;
-  jsonDocument["batLel"] = battery_level;
+  jsonDocument["batLev"] = battery_level;
   serializeJson(jsonDocument, buffer);
 }
 
 void getInfo() {
-  Serial.println("Get role");
+  update_battery_level();
+  
+  Serial.println("Get info");
   create_json(id, role, battery_level);
   server.send(200, "application/json", buffer);
 }
@@ -257,7 +295,8 @@ void setup(void) {
 void loop(void) {
   // handle HTTP request
   server.handleClient();
-    
+
+  // Get rotary encode value
   long pos = rotary_encoder.read();
   delay(70);
   if (pos < 8) {
@@ -269,9 +308,9 @@ void loop(void) {
   } else {
     level = 3;
   }
-  render_level();
+  draw_level();
   
-  // Show figure
+  // Draw role figure
   if(roleFile != NULL) {
 #ifdef DEBUG_MODE
     Serial.print("Not null");

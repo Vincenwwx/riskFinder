@@ -96,7 +96,7 @@ void GIFDraw(GIFDRAW *pDraw)
 
 #ifdef USE_DMA // 71.6 fps (ST7796 84.5 fps)
     tft.dmaWait();
-    tft.setAddrWindow(pDraw->iX, y+80, iWidth, 1);
+    tft.setAddrWindow(pDraw->iX+2, y+82, iWidth, 1); // MA good:80
     tft.pushPixelsDMA(&usTemp[dmaBuf][0], iCount);
     dmaBuf = !dmaBuf;
 #else // 57.0 fps
