@@ -15,49 +15,60 @@ class Detector_HTTP(QThread):
     The status include ID, role and battery level.
     """
 
-    def __init__(self, ip_range, delay=3):
+    # Signal with parameters:
+    #   - PLU id (int)
+    #   - Role id (int)
+    #   - Battery level (int)
+    #detect_PLU_joins_signal = pyqtSignal(int, int, int, name="detect_new_PLU_joins")
+    #detect_PLU_leaves_signal = pyqtSignal(int, name="detect_PLU_leaves")
+    detected_PLU_signal = pyqtSignal(list)
+
+    def __init__(self, http_config):  # Send an HTTP request every {delay}/s
         super().__init__()
-        self.ip_range = self.parseIpRange(ip_range)
-        self.online_PLUs = {}  # dict in form of 'ip': PLU_id
-        self.delay = delay
-        # Signal with parameters:
-        #   - PLU id (int)
-        #   - Role id (int)
-        #   - Battery level (int)
-        self.detect_PLU_joins_signal = pyqtSignal(int, int, int, name="detect_new_PLU_joins")
-        self.detect_PLU_leaves_signal = pyqtSignal(int, name="detect_new_PLU_leaves")
+        self.ip_range = self.parse_ip_range(http_config["ip_range"])
+        # TODO: or just a list?
+        self.online_PLUs = []  # dict in form of 'ip': PLU_id
+        self.delay = http_config["http_requesting_delay"]
+        self.get_info_suffix = http_config["get_info_suffix"]
 
     def run(self):
         """
         Test the existence of PLUs by sending HTTP requests to every ip in the
         list for every {delay} seconds.
         """
-        while (True):
+        while(True):
+            online_PLUs = []
             for ip in self.ip_range:
-                schema = f'http://{ip}/info'
-                try:  # target exists
+                schema = f'http://{ip}/{self.get_info_suffix}'
+                try:
                     res = requests.get(schema)
-                    if res.status_code == 200:
+
+                    if res.status_code == 200:  # target is connected
                         data = json.loads(res.text)
                         print(f"[Detector] New PLU found: "
                               f"id={data['id']}, "
                               f"role={data['role']}, "
                               f"battery level={data['batLel']}")
-                        if ip not in self.online_PLUs:  # if PLU is alive and new
-                            self.online_PLUs[id] = data['id']
+                        # TODO: What to do after detecting a new PLU?
+                        online_PLUs.append([data['id'], data['role'], data['batLel']])
+                        """
+                        if ip not in self.online_PLUs:  # if target is new
                             self.detect_PLU_joins_signal.emit(data['id'], data['role'], data['batLel'])
-                        elif data[]
+                        """
 
-                except ConnectionError:  # target does not exist
-                    if ip in self.online_PLUs:
+                except ConnectionError:         # target is not connected
+                    pass
+                    """
+                    if ip in self.online_PLUs:  # but once connected
                         del self.online_PLUs[ip]
                         print(f"[Detector] PLU with ip {ip} leaves")
                         self.detect_PLU_leaves_signal(self.online_PLUs[ip])
-
+                    """
+            self.detected_PLU_signal.emit(online_PLUs)
             time.sleep(self.delay)
 
     @staticmethod
-    def parseIpRange(ip_range):
+    def parse_ip_range(ip_range):
         """Parse ip range to list of ips.
 
         Example:
@@ -109,14 +120,21 @@ class Vision(QThread):
 class Controller:
     def __init__(self, ip_range):
         self._app = QtWidgets.QApplication(sys.argv)
-        self.model = Model()  # 初始化模型
+        # init model
+        self.model = Model()
+
+        # Init view
+        self._view = Window()
+"""
+        # Init HTTP detector (thread)
         self.detector_http = Detector_HTTP(ip_range)
         self.detector_http.detect_PLU_joins_signal.connect(self.append_new_PLU)
         self.detector_http.detect_PLU_leaves_signal.connect(self.delete_PLU)
+        # Init vision (thread)
         self.vision = Vision()
-        self._view = Window()  # 初始化视图
 
         self.saved_dir = "./../material/figures/"
+"""
 
     def create_new_role(self,
                         id_num: int,

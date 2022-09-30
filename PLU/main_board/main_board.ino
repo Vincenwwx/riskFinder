@@ -11,9 +11,11 @@
 #include <AnimatedGIF.h>        // Library used to display animated gif
 #include "robot.h"
 #include "conveyorBelt.h"
+#include "warehouse.h"
 
 #define HOME
 //#define RASP
+
 #define DEBUG_MODE
 //#define CIRCLE_LEVEL
 
@@ -183,6 +185,9 @@ void renderNewDisplay() {
   } else if (strcmp(role, "conveyor belt") == 0) {
     roleFile = conveyorBelt;
     sizeOfFile = sizeof(conveyorBelt);
+  } else if (strcmp(role, "warehouse") == 0) {
+    roleFile = warehouse;
+    sizeOfFile = sizeof(warehouse);
   }
 }
 
@@ -253,11 +258,15 @@ void handlePost() {
     return;
   }
   // role updates
-  if (strcmp(jsonDocument["role"], role) != 0) {
-    strcpy(role, jsonDocument["role"]);
+  if (jsonDocument.containsKey("role")) {
+    if (strcmp(jsonDocument["role"], role) != 0) {
+      strcpy(role, jsonDocument["role"]);
+    }
   }
   // state updates
-  state = jsonDocument["state"];
+  if (jsonDocument.containsKey("state")) {
+    state = jsonDocument["state"];
+  }
 
   renderNewDisplay();
   // Respond to the client
