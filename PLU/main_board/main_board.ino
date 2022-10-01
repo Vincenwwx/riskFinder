@@ -5,6 +5,10 @@
 #include <SPI.h>
 #include <Encoder.h>            // Library used for rotary encoder
 
+#include <ESPmDNS.h>
+#include <WiFiUdp.h>
+#include <ArduinoOTA.h>
+
 #define NORMAL_SPEED
 #define USE_DMA                 // ESP32 ~1.25x single frame rendering performance boost for badgers.h
                                 // Note: Do not use SPI DMA if reading GIF images from SPI SD card on same bus as TFT
@@ -137,7 +141,7 @@ void init_display() {
   tft.println("System init...");
 }
 
-void renderNewDisplay() {
+void render_new_display() {
   tft.fillScreen(TFT_BLACK);
   tft.setCursor(0, 0, 2);
   tft.setTextSize(1);
@@ -204,7 +208,7 @@ const char* ssid     = "Google Cloud";
 const char* password = "wwxwwx183";
 #endif
 
-void connectToWiFi() {
+void connect_to_WiFi() {
   Serial.print("Connecting to ");
   Serial.println(ssid);
   WiFi.mode(WIFI_STA);
@@ -273,7 +277,7 @@ void handlePost() {
     state = jsonDocument["state"];
   }
 
-  renderNewDisplay();
+  render_new_display();
   // Respond to the client
   server.send(200, "text/plain", "success");
 }
@@ -288,19 +292,47 @@ void setup_routing() {
 }
 
 // -----------------------------------------------
+// OTA
+// -----------------------------------------------
+void setup_OTA() {
+  ArduinoOTA
+    .onStart([]() {
+      String type;
+      if (ArduinoOTA.getCommand() == U_FLASH)
+        type = "sketch";
+      else // U_SPIFFS
+        type = "filesystem";
+
+      // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
+      //Serial.println("Start updating " + type);
+    })
+    .onError([](ota_error_t error) {
+      Serial.printf("Error[%u]: ", error);
+      if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+      else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+      else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+      else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+      else if (error == OTA_END_ERROR) Serial.println("End Failed");
+    });
+
+  ArduinoOTA.begin();
+}
+
+// -----------------------------------------------
 // Setup
 // -----------------------------------------------
 void setup(void) {
   Serial.begin(9600);
 
   init_display();
-  connectToWiFi();
+  connect_to_WiFi();
+  setup_OTA();
   setup_routing();
-  renderNewDisplay();
+  render_new_display();
 
   pinMode(PRESS_BUTTON, INPUT_PULLUP);
   
-  delay(1000);
+  delay(500);
 }
 
 // -----------------------------------------------
@@ -350,4 +382,6 @@ void loop(void) {
     rotary_encoder.write(0);             // set the current position as default
   }
   //delay(43);
+
+  ArduinoOTA.handle();
 }
