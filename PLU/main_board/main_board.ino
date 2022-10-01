@@ -21,6 +21,7 @@
 
 const uint8_t LEVEL_UPPER_LIMIT = 3;
 const uint8_t LEVEL_LOWER_LIMIT = 1;
+const uint8_t WIFI_CONNECTION_TIMEOUT = 50;
 
 // -----------------------------------------------
 // PLU Info
@@ -148,7 +149,7 @@ void renderNewDisplay() {
 
   // Display ID
   char displayBuffer[30] = "";
-  sprintf(displayBuffer, "ID   : %d", id);
+  sprintf(displayBuffer, "ID    : %d", id);
   tft.println(displayBuffer);
   
   // Display role
@@ -206,13 +207,17 @@ const char* password = "wwxwwx183";
 void connectToWiFi() {
   Serial.print("Connecting to ");
   Serial.println(ssid);
-  
+  WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
+  uint8_t timeout_counter = 0;
   
-  while (WiFi.status() != WL_CONNECTED) {
-    Serial.print(".");
-    delay(500);
-    // we can even make the ESP32 to sleep
+  while (WiFi.status() != WL_CONNECTED) {    
+    delay(200);
+    Serial.print("Connection Failed! Rebooting...");
+    timeout_counter++;
+    if (timeout_counter >= WIFI_CONNECTION_TIMEOUT) {
+      ESP.restart();
+    }
   }
  
   Serial.print("Connected. IP: ");
