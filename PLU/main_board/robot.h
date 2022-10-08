@@ -1,6 +1,3 @@
-// Created with image_to_c
-// https://github.com/bitbank2/image_to_c
-//
 // red_230_opt_font
 // Data size = 106522 bytes
 //

@@ -1,6 +1,3 @@
-// Created with image_to_c
-// https://github.com/bitbank2/image_to_c
-//
 // cb_color_resized_opt
 // Data size = 102550 bytes
 //

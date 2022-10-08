@@ -1,11 +1,8 @@
-from PyQt5 import QtGui
-from PyQt5.QtGui import QPixmap, QColor
-import json
-
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QKeySequence, QIcon, QBrush, QPen, QColor, QPainter
+from PyQt5.QtGui import QKeySequence, QIcon, QColor, QPixmap, QIntValidator
 from PyQt5.QtWidgets import QApplication, QLabel, QMainWindow, QAction, QGraphicsScene, QGraphicsView, QVBoxLayout, \
-    QHBoxLayout, QWidget
+    QHBoxLayout, QWidget, QLineEdit, QComboBox, QPushButton
+from utils import send_http_post
 
 
 class Scene(QLabel):
@@ -33,6 +30,8 @@ class Window(QMainWindow):
         self.resize(800, 600)
 
         self.simulation_actions = {}
+        self.settings_window = None
+        self.assign_role_window = None
 
         self._initActions()
         self._createMenuBar()
@@ -50,26 +49,27 @@ class Window(QMainWindow):
         self.exit_action = QAction(QIcon("../material/icons/exit.svg"), '&Exit', self)
         self.exit_action.setShortcut(QKeySequence('Ctrl+Esc'))
         self.exit_action.triggered.connect(self.close)
-        # Manage roles
+        # Edit
+        #  - Set role
+        self.assign_role_action = QAction("Assign role", self)
+        self.assign_role_action.setToolTip("Assign role to PLU")
+        #  - Settings
         self.settings_action = QAction(QIcon("../material/icons/settings.svg"), "Settings", self)
         self.settings_action.setToolTip("Settings")
-        self.settings_action.triggered.connect(self.set_roles)
         # Simulation
+        #  - start
         self.simulation_actions["start"] = QAction(QIcon("../material/icons/start.svg"), "Start", self)
-        self.simulation_actions["start"].triggered.connect(self.start_simulation)
-
-        self.simulation_actions["pause"] = QAction(QIcon("../material/icons/pause.svg"), "Pause", self)
-        self.simulation_actions["pause"].triggered.connect(self.pause_simulation)
-
+        #self.simulation_actions["start"].triggered.connect(self.start_simulation)
+        #  - restart
         self.simulation_actions["restart"] = QAction(QIcon("../material/icons/restart.svg"), "Restart", self)
-        self.simulation_actions["restart"].triggered.connect(self.restart_simulation)
-
+        #self.simulation_actions["restart"].triggered.connect(self.restart_simulation)
+        #  - stop
         self.simulation_actions["stop"] = QAction(QIcon("../material/icons/stop.svg"), "Stop", self)
-        self.simulation_actions["stop"].triggered.connect(self.stop_simulation)
+        #self.simulation_actions["stop"].triggered.connect(self.stop_simulation)
 
     def _createMenuBar(self):
         menu_bar = self.menuBar()
-        menu_bar.setNativeMenuBar(False) # Todo: may differs in Mac and linux
+        menu_bar.setNativeMenuBar(False)  # Todo: may differs in Mac and linux
         # ====================
         # File menu
         # ====================
@@ -79,14 +79,17 @@ class Window(QMainWindow):
         # - System refresh
         file_menu.addAction(self.refresh_system_action)
         # - Exit
-        file_menu.addSeparator() # add a separating line
+        file_menu.addSeparator()  # add a separating line
         file_menu.addAction(self.exit_action)
 
         # ====================
-        # Configuration menu
+        # Edit menu
         # ====================
         configuration_menu = menu_bar.addMenu("&Edit")
-        # - Set roles
+        # - Assign role
+        configuration_menu.addAction(self.assign_role_action)
+        configuration_menu.addSeparator()  # add a separating line
+        # - Settings
         configuration_menu.addAction(self.settings_action)
 
         # ====================
@@ -95,8 +98,6 @@ class Window(QMainWindow):
         simulation_menu = menu_bar.addMenu("&Simulate")
         # - Start
         simulation_menu.addAction(self.simulation_actions["start"])
-        # - Pause
-        simulation_menu.addAction(self.simulation_actions["pause"])
         # - Restart
         simulation_menu.addAction(self.simulation_actions["restart"])
         # - Stop
@@ -125,8 +126,8 @@ class Window(QMainWindow):
         self.canvas = Scene(self)
         self.setCentralWidget(self.canvas)
 
-    def draw_PLU(self, PLU):
-        """Draw a PLU on the canvas
+    def draw_PLUs(self, PLUs):
+        """Draw PLUs on the canvas
 
         Args:
             PLU (dict): Information of PLU to draw.
@@ -134,24 +135,71 @@ class Window(QMainWindow):
         Returns:
             bool: True if succeed, otherwise false
         """
-        battery_level = PLU["battery level"]
-        position = PLU["position"]
-        role = PLU["role"]
+        pass
 
     def _createStatusBar(self):
         self.statusBar = self.statusBar()
         self.statusBar.showMessage("System ready...")
 
-    # ------------- Event functions ---------------
-    # When set_roles is triggered, a new window will pop out
-    def start_simulation(self):
-        pass
 
-    def pause_simulation(self):
-        pass
+class Settings_window(QWidget):
+    """
+    This "window" is a QWidget. If it has no parent, it
+    will appear as a free-floating window as we want.
+    """
+    def __init__(self):
+        super().__init__()
+        layout = QVBoxLayout()
+        self.label = QLabel("Settings")
+        layout.addWidget(self.label)
+        self.setLayout(layout)
 
-    def restart_simulation(self):
-        pass
 
-    def stop_simulation(self):
-        pass
+class Assign_role_window(QWidget):
+    """
+    This "window" is a QWidget. If it has no parent, it
+    will appear as a free-floating window as we want.
+    """
+    def __init__(self, roles, ip_prefix="192.168.22"):
+        super().__init__()
+        self.setWindowTitle("Assign role")
+        self.ip_prefix = ip_prefix
+        layout = QVBoxLayout()
+        layout_1 = QHBoxLayout()
+        layout_2 = QHBoxLayout()
+        self.label_0 = QLabel("Assign PLU ")
+        self.label_1 = QLabel("with role")
+
+        self.id_text = QLineEdit()
+        self.id_text.setValidator(QIntValidator())
+        self.id_text.setMaxLength(12)
+        self.id_text.setText("(IP prefix)")
+        self.id_text.setAlignment(Qt.AlignLeft)
+
+        self.cb = QComboBox()
+        for role in roles:
+            self.cb.addItem(role)
+
+        confirm_button = QPushButton(self)
+        confirm_button.setText("confirm")
+        confirm_button.clicked.connect(self.set_role)
+
+        ok_button = QPushButton(self)
+        ok_button.setText("ok")
+        ok_button.clicked.connect(self.close)
+
+        layout_1.addWidget(self.label_0)
+        layout_1.addWidget(self.id_text)
+        layout_1.addWidget(self.label_1)
+        layout_1.addWidget(self.cb)
+        layout_2.addWidget(confirm_button)
+        layout_2.addWidget(ok_button)
+        layout.addLayout(layout_1)
+        layout.addLayout(layout_2)
+        self.setLayout(layout)
+
+    def set_role(self):
+        ip_suffix = self.id_text.text()
+        scheme = f'http://{self.ip_prefix}.{ip_suffix}/config'
+        payload = {"role": self.cb.currentText(), "state": 0}
+        send_http_post(scheme, payload)

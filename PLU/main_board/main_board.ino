@@ -17,11 +17,14 @@
 #include "conveyorBelt.h"
 #include "warehouse.h"
 
-#define HOME
-//#define RASP
+//#define HOME
+#define RASP
 
 #define DEBUG_MODE
 //#define CIRCLE_LEVEL
+
+#define BATTERY_VOLTAGE
+//#define BATTERY_PERCENTAGE
 
 const uint8_t LEVEL_UPPER_LIMIT = 3;
 const uint8_t LEVEL_LOWER_LIMIT = 1;
@@ -30,21 +33,23 @@ const uint8_t WIFI_CONNECTION_TIMEOUT = 50;
 // -----------------------------------------------
 // PLU Info
 // -----------------------------------------------
-uint8_t id = 1;
+uint8_t id = 5;
 char role[20] = "undefined";
 // States of the node
 //  0: Ready
 //  1: Simulating/working
 uint8_t state = 0;
 uint8_t level = LEVEL_LOWER_LIMIT;
-uint8_t battery_level = 100;
+float battery_voltage = .0;
+uint8_t battery_percentage = 100;
 
 const int MAX_ANALOG_VAL = 4095;
 const float MAX_BATTERY_VOLTAGE = 4.2; // Max LiPoly voltage of a 3.7 battery is 4.2
 
-void update_battery_level() {
+void update_battery_percentage() {
   float rawValue = analogRead(A13);
-  battery_level = (int)(rawValue / MAX_ANALOG_VAL * 2 * 1.1 * 3.3 / MAX_BATTERY_VOLTAGE * 100);
+  battery_voltage = rawValue / MAX_ANALOG_VAL * 2 * 1.1 * 3.3 / MAX_BATTERY_VOLTAGE;
+  battery_percentage = (int)(battery_voltage * 100);
 }
 
 
@@ -147,8 +152,8 @@ void render_new_display() {
   tft.setTextSize(1);
 
   // Display battery
-  update_battery_level();
-  uint8_t lvl = (battery_level < 30) ? 1 : (battery_level < 60) ? 2 : 3;
+  update_battery_percentage();
+  uint8_t lvl = (battery_percentage < 30) ? 1 : (battery_percentage < 60) ? 2 : 3;
   draw_battery(lvl);
 
   // Display ID
@@ -180,7 +185,7 @@ void render_new_display() {
   tft.print("IP: ");
   tft.println(WiFi.localIP());
   tft.print("Bat. lel: ");
-  tft.print(battery_level);
+  tft.print(battery_percentage);
   tft.println("%");
 #endif
   
@@ -231,29 +236,28 @@ void connect_to_WiFi() {
 // -----------------------------------------------
 // Web Server
 // -----------------------------------------------
-// Web server running on port 80
-WebServer server(80);
-// JSON data buffer
-StaticJsonDocument<250> jsonDocument;
+WebServer server(80); // on port 80
+StaticJsonDocument<250> jsonDocument; // buffer for storing JSON data
 char buffer[250];
 
-void create_json(int id, char *role, int battery_level) {  
+void pack_data(int id, char *role, int battery_percentage, int simulation_level) {  
   jsonDocument.clear();  
   jsonDocument["id"] = id;
   jsonDocument["role"] = role;
-  jsonDocument["batLev"] = battery_level;
+  jsonDocument["batLev"] = battery_percentage;
+  jsonDocument["simLev"] = simulation_level;
   serializeJson(jsonDocument, buffer);
 }
 
-void getInfo() {
-  update_battery_level();
+void handle_info_GET() {
+  update_battery_percentage();
   
-  Serial.println("Get info");
-  create_json(id, role, battery_level);
+  //Serial.println("Get info");
+  pack_data(id, role, battery_percentage, level);
   server.send(200, "application/json", buffer);
 }
 
-void handlePost() {
+void handle_config_POST() {
   if (server.hasArg("plain") == false) {}
     //handle error here
   
@@ -266,17 +270,19 @@ void handlePost() {
     //server.send(404, "text/plain", "Error, unknown role...");
     return;
   }
+  
   // role updates
   if (jsonDocument.containsKey("role")) {
     if (strcmp(jsonDocument["role"], role) != 0) {
       strcpy(role, jsonDocument["role"]);
     }
   }
+  
   // state updates
   if (jsonDocument.containsKey("state")) {
     state = jsonDocument["state"];
   }
-
+  
   render_new_display();
   // Respond to the client
   server.send(200, "text/plain", "success");
@@ -284,15 +290,15 @@ void handlePost() {
 
 // setup API resources
 void setup_routing() {
-  server.on("/info", getInfo);
-  server.on("/config", HTTP_POST, handlePost);
+  server.on("/info", handle_info_GET);
+  server.on("/config", HTTP_POST, handle_config_POST);
  
   // start server
   server.begin();
 }
 
 // -----------------------------------------------
-// OTA
+// OTA function
 // -----------------------------------------------
 void setup_OTA() {
   ArduinoOTA
@@ -302,9 +308,6 @@ void setup_OTA() {
         type = "sketch";
       else // U_SPIFFS
         type = "filesystem";
-
-      // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
-      //Serial.println("Start updating " + type);
     })
     .onError([](ota_error_t error) {
       Serial.printf("Error[%u]: ", error);

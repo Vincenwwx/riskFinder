@@ -1,6 +1,3 @@
-// Created with image_to_c
-// https://github.com/bitbank2/image_to_c
-//
 // warehouse
 // Data size = 166354 bytes
 //

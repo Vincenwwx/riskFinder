@@ -9,15 +9,13 @@ class PLU:
         - role_id: the id of the role of the PLU
         - battery_level: current battery level
         - position: 2d tuple (x, y)
-        - connection: list of two lists (the first list contains the IDs of the input,
-                      and the second contains IDs of the output PLU.
     """
-    def __init__(self, ID, role_id, battery_level, position=(0, 0), connection=None):
+    def __init__(self, ID, role_id, ip, battery_level, position=(0, 0, 0, 0)):
         self.id = ID
         self.role = role_id
+        self.ip = ip
         self.battery_level = battery_level
         self.position = position
-        self.connection = connection or []
 
 
 class Model:
@@ -34,6 +32,17 @@ class Model:
     @property
     def num_of_PLUs(self):
         return len(self.PLUs)
+
+    @property
+    def num_of_roles(self):
+        return len(self.roles)
+
+    @property
+    def role_name(self):
+        names = []
+        for role in self.roles:
+            names.append(role["name"])
+        return names
 
     def load_roles(self):
         """ Load roles from a (database) file. """
@@ -55,14 +64,6 @@ class Model:
         """
         with open(self.data_file_path, 'w') as f:
             json.dump(self.roles, f)
-
-    def update_connection(self):
-        """Recalculate the connection of the PLUs based on the positions of PLUs.
-
-        Returns:
-            bool: True if succeed, otherwise False.
-        """
-        pass
 
     def name_to_id(self, name):
         """Convert role name to id."""
