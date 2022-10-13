@@ -17,8 +17,6 @@
 #include "conveyorBelt.h"
 #include "warehouse.h"
 
-//#define HOME
-#define RASP
 
 #define DEBUG_MODE
 //#define CIRCLE_LEVEL
@@ -35,9 +33,12 @@ const uint8_t WIFI_CONNECTION_TIMEOUT = 50;
 // -----------------------------------------------
 uint8_t id = 5;
 char role[20] = "undefined";
-// States of the node
-//  0: Ready
-//  1: Simulating/working
+/** 
+ *  States of the PLU:
+ *    0: Ready
+ *    1: Simulating/working
+ *    2: configuring
+**/
 uint8_t state = 0;
 uint8_t level = LEVEL_LOWER_LIMIT;
 float battery_voltage = .0;
@@ -85,11 +86,11 @@ void update_level(uint8_t &level, int num) {
 // Display
 // -----------------------------------------------
 // Change the position of the elements here
-const uint8_t level_x_coordinate = 160;
-const uint8_t level_y_coordinate = 15;
+const uint8_t LEVEL_X_COORDINATE = 160;
+const uint8_t LEVEL_Y_COORDINATE = 15;
 
-const uint8_t battery_x_coordinate = 210;
-const uint8_t battery_y_coordinate = 10;
+const uint8_t BATTERY_X_COORDINATE = 210;
+const uint8_t BATTERY_Y_COORDINATE = 10;
 
 TFT_eSPI tft = TFT_eSPI();  // Invoke library, pins defined in User_Setup.h
 AnimatedGIF gif;
@@ -99,26 +100,28 @@ uint8_t const *roleFile = NULL;
 size_t sizeOfFile = 0;
 
 void draw_battery(uint8_t level) {
-  //assert(level < 3);
-  tft.fillRect(battery_x_coordinate, battery_y_coordinate, 30, 25, TFT_BLACK);
-
-  int color;
-  if (level == 1) color = TFT_RED;
-  else if (level == 2) color = TFT_YELLOW;
-  else color = TFT_GREEN;
-  tft.drawRect(battery_x_coordinate, battery_y_coordinate, 20, 15, TFT_WHITE);
-  tft.fillRect(battery_x_coordinate+20, battery_y_coordinate+3, 3, 9, TFT_WHITE);
+  // Clear the display by drawing a black rectangle
+  tft.fillRect(BATTERY_X_COORDINATE, BATTERY_Y_COORDINATE, 
+               30, 25, TFT_BLACK);
+  // Change the color according to the input battery level
+  int color = (level == 1) ? TFT_RED : 
+              (level == 2) ? TFT_YELLOW : TFT_GREEN;
+  tft.drawRect(BATTERY_X_COORDINATE, BATTERY_Y_COORDINATE, 
+               20, 15, TFT_WHITE);
+  tft.fillRect(BATTERY_X_COORDINATE+20, BATTERY_Y_COORDINATE+3, 
+               3, 9, TFT_WHITE);
   for (int i = 0; i < level; i++) {
-    tft.fillRect(battery_x_coordinate+2+(4+2)*i, battery_y_coordinate+3, 4, 9, color);
+    tft.fillRect(BATTERY_X_COORDINATE+2+(4+2)*i, BATTERY_Y_COORDINATE+3, 
+                 4, 9, color);
   }
 }
 
 void draw_level() {
   // Clear the previous level
-  tft.fillRect(level_x_coordinate, level_y_coordinate, 15, 30, TFT_BLACK);
+  tft.fillRect(LEVEL_X_COORDINATE, LEVEL_Y_COORDINATE, 15, 30, TFT_BLACK);
   // Draw the latest level
   //tft.setCursor(185, 25);
-  tft.setCursor(level_x_coordinate, level_y_coordinate);
+  tft.setCursor(LEVEL_X_COORDINATE, LEVEL_Y_COORDINATE);
   tft.setTextSize(2);
   tft.println(level);
 }
@@ -148,70 +151,73 @@ void init_display() {
 
 void render_new_display() {
   tft.fillScreen(TFT_BLACK);
-  tft.setCursor(0, 0, 2);
-  tft.setTextSize(1);
 
-  // Display battery
-  update_battery_percentage();
-  uint8_t lvl = (battery_percentage < 30) ? 1 : (battery_percentage < 60) ? 2 : 3;
-  draw_battery(lvl);
-
-  // Display ID
-  char displayBuffer[30] = "";
-  sprintf(displayBuffer, "ID    : %d", id);
-  tft.println(displayBuffer);
+  if (state == 0 || state == 1) {
+    tft.setCursor(0, 0, 2);
+    tft.setTextColor(TFT_WHITE);  tft.setTextSize(1);
+    // Display battery
+    update_battery_percentage();
+    uint8_t lvl = (battery_percentage < 30) ? 1 : (battery_percentage < 60) ? 2 : 3;
+    draw_battery(lvl);
   
-  // Display role
-  sprintf(displayBuffer, "ROLE : %s", role);
-  tft.println(displayBuffer);
-
-  // Display simulation state
-  char s[11] = "";
-  if (state == 0) {
-    strcpy(s, "ready");
-  } else {
-    strcpy(s, "simulating");
-  }
-  sprintf(displayBuffer, "STATE: %s", s);
-  tft.println(displayBuffer);
-
-  // Display simulation parameter
-  tft.drawCircle(level_x_coordinate+6, level_y_coordinate+16, 22, TFT_WHITE);
-  draw_level();
-
-  // Display IP
+    // Display ID
+    char displayBuffer[30] = "";
+    sprintf(displayBuffer, "ID    : %d", id);
+    tft.println(displayBuffer);
+    
+    // Display role
+    sprintf(displayBuffer, "ROLE : %s", role);
+    tft.println(displayBuffer);
+  
+    // Display simulation state
+    char s[11] = "";
+    if (state == 0) {
+      strcpy(s, "ready");
+    } else {
+      strcpy(s, "simulating");
+    }
+    sprintf(displayBuffer, "STATE: %s", s);
+    tft.println(displayBuffer);
+  
+    // Display simulation parameter
+    tft.drawCircle(LEVEL_X_COORDINATE+6, LEVEL_Y_COORDINATE+16, 22, TFT_WHITE);
+    draw_level();
+  
+    // Display IP
 #ifdef DEBUG_MODE
-  tft.setTextSize(1);
-  tft.print("IP: ");
-  tft.println(WiFi.localIP());
-  tft.print("Bat. lel: ");
-  tft.print(battery_percentage);
-  tft.println("%");
+    tft.setTextSize(1);
+    tft.print("IP: ");
+    tft.println(WiFi.localIP());
+    tft.print("Bat. lel: ");
+    tft.print(battery_percentage);
+    tft.println("%");
 #endif
-  
-  if (strcmp(role, "robot") == 0) {
-    roleFile = robot;
-    sizeOfFile = sizeof(robot);
-  } else if (strcmp(role, "conveyor belt") == 0) {
-    roleFile = conveyorBelt;
-    sizeOfFile = sizeof(conveyorBelt);
-  } else if (strcmp(role, "warehouse") == 0) {
-    roleFile = warehouse;
-    sizeOfFile = sizeof(warehouse);
+    
+    if (strcmp(role, "robot") == 0) {
+      roleFile = robot;
+      sizeOfFile = sizeof(robot);
+    } else if (strcmp(role, "conveyor belt") == 0) {
+      roleFile = conveyorBelt;
+      sizeOfFile = sizeof(conveyorBelt);
+    } else if (strcmp(role, "warehouse") == 0) {
+      roleFile = warehouse;
+      sizeOfFile = sizeof(warehouse);
+    }
+  }
+
+  else if (state == 2) {
+    tft.setCursor(1, 1, 2);
+    tft.setTextColor(TFT_YELLOW); tft.setTextFont(8);
+    Serial.println(id);
+    tft.print(id);
   }
 }
 
 // -----------------------------------------------
 // WIFI
 // -----------------------------------------------
-#ifdef RASP
-const char* ssid     = "vincen_MA";
-const char* password = "wwxwwx183";
-#endif
-#ifdef HOME
-const char* ssid     = "Google Cloud";
-const char* password = "wwxwwx183";
-#endif
+const char* ssid     = "riskFinder";
+const char* password = "iasSI422";
 
 void connect_to_WiFi() {
   Serial.print("Connecting to ");
@@ -342,10 +348,14 @@ void setup(void) {
 // Loop
 // -----------------------------------------------
 void loop(void) {
-  // handle HTTP request
+  /** 
+   *  Handle HTTP request
+  **/
   server.handleClient();
 
-  // Get rotary encode value
+  /** 
+   *  Get rotary encode value
+   */
   long pos = rotary_encoder.read();
   delay(70);
   if (pos < 8) {
@@ -357,9 +367,11 @@ void loop(void) {
   } else {
     level = 3;
   }
-  draw_level();
+  if (state != 2) draw_level();
   
-  // Draw role figure
+  /** 
+   *  Draw role figure
+   */
   if(roleFile != NULL) {
 #ifdef DEBUG_MODE
     Serial.print("Not null");
